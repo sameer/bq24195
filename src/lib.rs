@@ -19,19 +19,21 @@ where
 {
     const ADDRESS: u8 = 0x6B;
 
-    pub fn try_new(mut i2c: I2C) -> Result<Self, E> {
-        let mut bq24195 = Self {
+    pub fn new(i2c: I2C) -> Self {
+        Self {
             i2c,
             state: State::default(),
-        };
-        // Multi-read of current status
-        bq24195.i2c.write(Self::ADDRESS, &[0x08])?;
-        let mut values = [0u8; 2];
-        bq24195.i2c.read(Self::ADDRESS, &mut values)?;
-        bq24195.state.system_status = values[0].into();
-        bq24195.state.fault = values[1].into();
+        }
+    }
 
-        Ok(bq24195)
+    /// Read system status and fault registers
+    pub fn get_status(&mut self) -> Result<(), E> {
+        self.i2c.write(Self::ADDRESS, &[0x08])?;
+        let mut values = [0u8; 2];
+        self.i2c.read(Self::ADDRESS, &mut values)?;
+        self.state.system_status = values[0].into();
+        self.state.fault = values[1].into();
+        Ok(())
     }
 }
 
