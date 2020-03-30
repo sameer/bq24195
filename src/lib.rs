@@ -6,22 +6,48 @@ extern crate embedded_hal as hal;
 #[macro_use]
 extern crate bitflags;
 
-use hal::blocking::i2c::{Write, WriteRead};
-
-pub const ADDRESS: u8 = 0x6B;
+use hal::blocking::i2c::{Read, Write, WriteRead};
 
 pub struct Bq24195<I2C> {
     i2c: I2C,
+    state: State,
 }
 
 impl<I2C, E> Bq24195<I2C>
 where
-    I2C: WriteRead<Error = E> + Write<Error = E>,
+    I2C: WriteRead<Error = E> + Write<Error = E> + Read<Error = E>,
 {
-    fn new(i2c: I2C) -> Self {
-        Self { i2c }
+    const ADDRESS: u8 = 0x6B;
+
+    pub fn try_new(mut i2c: I2C) -> Result<Self, E> {
+        let mut bq24195 = Self {
+            i2c,
+            state: State::default(),
+        };
+        // Multi-read of current status
+        bq24195.i2c.write(Self::ADDRESS, &[0x08])?;
+        let mut values = [0u8; 2];
+        bq24195.i2c.read(Self::ADDRESS, &mut values)?;
+        bq24195.state.system_status = values[0].into();
+        bq24195.state.fault = values[1].into();
+
+        Ok(bq24195)
     }
-    fn input_source_control() {}
+}
+
+#[derive(Default)]
+struct State {
+    input_source_control: InputSourceControl,
+    power_on_configuration: PowerOnConfiguration,
+    charge_current_control: ChargeCurrentControl,
+    pre_charge_termination_current_control: PreChargeTerminationCurrentControl,
+    charge_voltage_control: ChargeVoltageControl,
+    charge_termination_timer_control: ChargeTerminationTimerControlRegister,
+    thermal_regulation_control: ThermalRegulationControl,
+    misc_operation_control: MiscOperationControl,
+    system_status: SystemStatus,
+    fault: Fault,
+    vendor_part_revision_status: VendorPartRevisionStatus,
 }
 
 macro_rules! register {
@@ -44,6 +70,24 @@ macro_rules! register {
                     $($registerName::$default |)* $registerName {
                         bits: 0u8
                     }
+                }
+            }
+        }
+
+        paste::item! {
+            impl From<u8> for $registerName {
+                fn from(bits: u8) -> $registerName {
+                    $registerName {
+                        bits
+                    }
+                }
+            }
+        }
+
+        paste::item! {
+            impl Into<u8> for & $registerName {
+                fn into(self) -> u8 {
+                    self.bits
                 }
             }
         }
@@ -211,7 +255,7 @@ register!(
 );
 
 register!(
-    VendorPartRevisiotStatus {
+    VendorPartRevisionStatus {
         RESERVED_7,
         RESERVED_6,
         PN_2,

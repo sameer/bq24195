@@ -8,7 +8,7 @@ categories = ["embedded", "hardware-support", "no-std"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sameer/bq24195"
 documentation = "https://docs.rs/bq24195"
-description = "I2C driver for BQ24195 Single Cell Charger"
+description = "I2C driver for Texas Instruments BQ24195 Single Cell Charger"
 readme = "README.md"
 
 [badges]
