@@ -14,24 +14,23 @@ macro_rules! registers {
     ($($(#[$outer:meta])* $registerName: ident ($registerAddress: pat) { $bit7: ident, $bit6: ident, $bit5: ident, $bit4: ident, $bit3: ident, $bit2: ident, $bit1: ident, $bit0: ident, Default { $($default:ident),* }}),*) => {
         paste::item!{
             #[derive(Default, Clone)]
-            pub struct ChipState {
+            pub struct ChargerState {
                 $(
-                    pub [<$registerName:lower>]: $registerName,
+                    pub [<$registerName:snake>]: $registerName,
                 )*
             }
         }
 
         paste::item! {
-            impl ChipState {
+            impl ChargerState {
                 /// Read all registers to update the state.
                 /// Useful fo checking fault detection and system status registers.
-                pub fn read<E, I2C: WriteRead<Error = E> + Write<Error = E> + Read<Error = E>>(&mut self, i2c: &mut I2C) -> Result<Self, E> {
-                    i2c.write(ADDRESS, &[0x00])?;
+                pub fn read_all<E, I2C: WriteRead<Error = E>>(&mut self, i2c: &mut I2C) -> Result<Self, E> {
                     let mut values = [0u8; NUM_REGISTERS];
-                    i2c.read(ADDRESS, &mut values)?;
+                    i2c.write_read(ADDRESS, &[0x00], &mut values)?;
                     Ok(Self {
                         $(
-                            [<$registerName:lower>]: values[$registerAddress].into(),
+                            [<$registerName:snake>]: values[$registerAddress].into(),
                         )*
                     })
                 }
@@ -39,11 +38,11 @@ macro_rules! registers {
                 /// Write chip state to all registers.
                 /// Useful for taking a preset chip state and applying it.
                 /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A98%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C556.4%2C0%5D)
-                pub fn write_all<E, I2C: WriteRead<Error = E> + Write<Error = E> + Read<Error = E>>(&self, i2c: &mut I2C) -> Result<(), E> {
+                pub fn write_all<E, I2C: Write<Error = E>>(&self, i2c: &mut I2C) -> Result<(), E> {
                     i2c.write(ADDRESS, &[0x00])?;
                     let mut values = [0u8; NUM_REGISTERS];
                     $(
-                        values[$registerAddress] = self.[<$registerName:lower>].into();
+                        values[$registerAddress] = self.[<$registerName:snake>].into();
                     )*
                     i2c.write(ADDRESS, &values[..=LAST_WRITABLE_REGISTER])?;
                     Ok(())
@@ -51,27 +50,26 @@ macro_rules! registers {
 
                 $(
                     /// Get a register state from the current chip state. Does NOT do an I2C call.
-                    pub fn [<get_$registerName:lower>](&self) -> $registerName {
-                        self.[<$registerName:lower>]
+                    pub fn [<get_$registerName:snake>](&self) -> $registerName {
+                        self.[<$registerName:snake>]
                     }
 
                     /// Read the state of a single register, updating the chip state.
                     /// If an error occurs, the chip state remains the same.
-                    pub fn [<read_$registerName:lower>]<E, I2C: WriteRead<Error = E> + Write<Error = E> + Read<Error = E>>(&mut self, i2c: &mut I2C) -> Result<(), E> {
-                        i2c.write(ADDRESS, &[$registerAddress])?;
+                    pub fn [<read_$registerName:snake>]<E, I2C: WriteRead<Error = E>>(&mut self, i2c: &mut I2C) -> Result<(), E> {
                         let mut value = [0u8; 1];
-                        i2c.read(ADDRESS, &mut value)?;
-                        self.[<$registerName:lower>] = value[0].into();
+                        i2c.write_read(ADDRESS, &[$registerAddress], &mut value)?;
+                        self.[<$registerName:snake>] = value[0].into();
                         Ok(())
                     }
 
                     /// Write the state of a single register, updating the chip state.
                     /// If an error occurs, the chip state remains the same.
-                    pub fn [<write_$registerName:lower>]<E, I2C: WriteRead<Error = E> + Write<Error = E> + Read<Error = E>>(&mut self, i2c: &mut I2C, [<$registerName:lower>]: $registerName) -> Result<(), E> {
+                    pub fn [<write_$registerName:snake>]<E, I2C: Write<Error = E>>(&mut self, i2c: &mut I2C, [<$registerName:snake>]: $registerName) -> Result<(), E> {
                         i2c.write(ADDRESS, &[$registerAddress])?;
-                        let mut value = [[<$registerName:lower>].into(); 1];
+                        let mut value = [[<$registerName:snake>].into(); 1];
                         i2c.write(ADDRESS, &mut value)?;
-                        self.[<$registerName:lower>] = [<$registerName:lower>];
+                        self.[<$registerName:snake>] = [<$registerName:snake>];
                         Ok(())
                     }
                 )*
