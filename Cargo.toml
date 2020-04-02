@@ -21,7 +21,7 @@ embedded-hal = "0.2"
 bitflags = "1"
 
 [dependencies.paste]
-git = "https://github.com/sameer/paste"
+git = "https://github.com/dtolnay/paste"
 version = "0.1"
 
 [dev-dependencies]
