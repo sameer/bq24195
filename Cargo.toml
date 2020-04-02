@@ -21,8 +21,7 @@ embedded-hal = "0.2"
 bitflags = "1"
 
 [dependencies.paste]
-git = "https://github.com/dtolnay/paste"
-version = "0.1"
+version = ">=0.1.10"
 
 [dev-dependencies]
 cortex-m-rt = "*"
