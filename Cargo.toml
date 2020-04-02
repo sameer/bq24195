@@ -19,9 +19,7 @@ maintenance = { status = "passively-maintained" }
 [dependencies]
 embedded-hal = "0.2"
 bitflags = "1"
-
-[dependencies.paste]
-version = ">=0.1.10"
+paste = ">=0.1.10"
 
 [dev-dependencies]
 cortex-m-rt = "*"
