@@ -170,20 +170,31 @@ macro_rules! registers {
 
         paste::item! {
             impl ChargerState {
-                /// Read all registers to get the current state of BQ24195.
-                /// Default is NOT implemented, because some registers do not have a default value
-                pub fn read_all<E, I2C: WriteRead<Error = E>>(&mut self, i2c: &mut I2C) -> Result<Self, E> {
-                    let mut values = [0u8; NUM_REGISTERS];
-                    i2c.write_read(ADDRESS, &[0x00], &mut values)?;
-                    Ok(Self {
+                /// Create a new `ChargerState` struct by reading all registers over I2C
+                ///
+                /// `Default` is NOT implemented for `ChargerState` because some registers do not actually have a default
+                pub fn try_new<E, I2C: WriteRead<Error = E>>(i2c: &mut I2C) -> Result<Self, E> {
+                    let mut state = Self {
                         $(
-                            [<$registerName:snake:lower>]: values[$registerAddress].into(),
+                            [<$registerName:snake:lower>]: $registerName::default(),
                         )*
-                    })
+                    };
+                    state.read_all(i2c)?;
+                    Ok(state)
                 }
 
-                /// Write chip state to all registers.
-                /// Useful for taking a preset chip state and applying it.
+                /// Read all registers to set the current state of BQ24195.
+                pub fn read_all<E, I2C: WriteRead<Error = E>>(&mut self, i2c: &mut I2C) -> Result<(), E> {
+                    let mut values = [0u8; NUM_REGISTERS];
+                    i2c.write_read(ADDRESS, &[0x00], &mut values)?;
+                    $(
+                        self.[<$registerName:snake:lower>] = values[$registerAddress].into();
+                    )*
+                    Ok(())
+                }
+
+                /// Write chip state to all registers. Useful for taking a preset chip state and applying it.
+                ///
                 /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A98%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C556.4%2C0%5D)
                 pub fn write_all<E, I2C: Write<Error = E>>(&self, i2c: &mut I2C) -> Result<(), E> {
                     i2c.write(ADDRESS, &[0x00])?;
@@ -202,6 +213,7 @@ macro_rules! registers {
                     }
 
                     /// Read the state of a single register over I2C, updating the chip state.
+                    ///
                     /// If an error occurs, the chip state remains the same.
                     pub fn [<read_$registerName:snake:lower>]<E, I2C: WriteRead<Error = E>>(&mut self, i2c: &mut I2C) -> Result<(), E> {
                         let mut value = [0u8; 1];
@@ -211,6 +223,7 @@ macro_rules! registers {
                     }
 
                     /// Write the state of a single register over I2C, updating the chip state.
+                    ///
                     /// If an error occurs, the chip state remains the same.
                     pub fn [<write_$registerName:snake:lower>]<E, I2C: Write<Error = E>>(&mut self, i2c: &mut I2C, [<$registerName:snake:lower>]: $registerName) -> Result<(), E> {
                         i2c.write(ADDRESS, &[$registerAddress])?;
