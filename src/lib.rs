@@ -315,8 +315,21 @@ const NUM_REGISTERS: usize = 11;
 const LAST_WRITABLE_REGISTER: usize = 7;
 
 registers!(
-    #[doc(noinline)]
     /// [Register 0x00](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A578%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C681.2%2C0%5D)
+    ///
+    /// VINDPM[3:0] is added to 3.88V
+    ///
+    /// IINLIM[2:0] is scaled in an odd manner:
+    /// ```
+    /// 000 = 100  mA
+    /// 001 = 150  mA
+    /// 010 = 500  mA
+    /// 011 = 900  mA
+    /// 100 = 1200 mA
+    /// 101 = 1500 mA
+    /// 110 = 2000 mA
+    /// 111 = 3000 mA
+    /// ```
     InputSourceControl (0x00) {
         /// Buck Converter Control (0 = Restart Buck Converter, 1 = Buck Converter Stops, system load supplied by battery)
         EN_HIZ,
@@ -336,6 +349,8 @@ registers!(
         IINLIM_0,
     Default { VINDPM_2, VINDPM_1 }},
     /// [Register 0x01](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A586%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    ///
+    /// SYS_MIN[2:0] is added to 3.0V
     PowerOnConfiguration (0x01) {
         /// Resets this register upon writing this value, returns to 0 after reset
         REGISTER_RESET,
@@ -360,6 +375,8 @@ registers!(
         RESERVED
     }},
     /// [Register 0x02](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A158%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    ///
+    /// ICHG[5:0] is added to 512mA
     ChargeCurrentControl (0x02) {
         /// Fast Charge Current Limit Offset Bit 5: 2048 mA
         ICHG_5,
@@ -379,6 +396,10 @@ registers!(
         FORCE_20PCT,
     Default { ICHG_4, ICHG_3 }},
     /// [Register 0x03](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A158%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C409.9%2C0%5D)
+    ///
+    /// IPRECHG[3:0] is added to 128mA
+    ///
+    /// ITERM[3:0] is added to 128mA
     PreChargeTerminationCurrentControl (0x03) {
         /// Pre-Charge Current Limit Offset Bit 3: 1024 mA
         IPRECHG_3,
@@ -398,6 +419,8 @@ registers!(
         ITERM_0,
     Default { IPRECHG_0, ITERM_0 }},
     /// [Register 0x04](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A601%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    ///
+    /// VREG[5:0] is added to 3.504V
     ChargeVoltageControl (0x04) {
         /// Charger Voltage Limit Offset Bit 5: 512mV
         VREG_5,
