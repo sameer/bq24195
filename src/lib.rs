@@ -1,15 +1,14 @@
-//! # BQ24195
 //! BQ24195 is a single cell charger intended for use in portable devices. The features of the charger are summarized as they pertain to this library below.
 //!
-//! ## Functional Modes
+//! # Functional Modes
 //!
 //! Chip mode is indicated by [`Fault::WATCHDOG_FAULT`](struct.Fault.html#associatedconstant.WATCHDOG_FAULT), 1 = Default Mode and 0 = Host Mode.
 //!
-//! ### Default Mode
+//! ## Default Mode
 //!
 //! By default, the chip does not require host management and can be used as an autonomous charger. In this case, I2C can be used to just monitor the chip's status.
 //!
-//! ### Host Mode
+//! ## Host Mode
 //!
 //! In host mode,
 //! The chip will transition to host mode upon writing to any chip register, resetting the watchdog timer.
@@ -17,33 +16,33 @@
 //! To stay in host mode, either write 1 twice to [`PowerOnConfiguration::I2C_WATCHDOG_TIMER_RESET`](struct.PowerOnConfiguration.html#associatedconstant.I2C_WATCHDOG_TIMER_RESET) to reset the timer before it expires,
 //! or disable the timer entirely by setting [`ChargeTerminationTimerControl::WATCHDOG[1:0]`](struct.ChargeTerminationTimerControl.html#associatedconstant.WATCHDOG_1) to 00.
 //!
-//! ## BATFET
+//! # BATFET
 //!
 //! The battery field-effect transistor (BATFET) is used to control the flow of current to the battery.
 //! You can manually disable it by writing 1 to [`MiscOperationControl::BATFET_DISABLE`](struct.MiscOperationControl.html#associatedconstant.BATFET_DISABLE). This disconnects the battery, disabling both charging and discharging.
 //!
-//! ## Power Path Management
+//! # Power Path Management
 //! [Dynamic Power Management](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A326%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C202.4%2C0%5D) ensures compliance with the USB specification.
 //! It continuously monitors the input current and input voltage to maintain nominal system performance.
 //!
-//! ### Overloaded input source
+//! ## Overloaded input source
 //! If input current exceeds [`InputSourceControl::IINLIM[2:0]`](struct.InputSourceControl.html#associatedconstant.IINLIM_2) or input voltage falls below 3.88V + [`InputSourceControl::VINDPM[3:0]`](struct.InputSourceControl.html#associatedconstant.VINDPM_3),
 //! then the input source is considered overloaded. [`SystemStatus::DPM_STATUS`](struct.SystemStatus.html#associatedconstant.DPM_STAT) will indicate these conditions.
 //! DPM will reduce charge current until it is no longer overloaded.
 //!
 //! For example, the default input voltage limit offset is set to 480 mV (3.88V + 480mV = 4.36V), which is the correct voltage for fully charging a Lithium-Ion cell.
 //!
-//! ### Supplement mode
+//! ## Supplement mode
 //!
 //! If the input source is still overloaded when the charge current is dropped to 0A, the chip enters supplement mode; the BATFET is turned on and the battery begins discharging to supplement the input source.
 //!
-//! ## Battery Charging Management
+//! # Battery Charging Management
 //!
 //! BQ24195 is designed to charge a single-cell Li-Ion high capacity battery (i.e. 18650).
 //!
 //! Although the default current limit [`InputSourceControl::IINLIM[2:0]`](struct.InputSourceControl.html#associatedconstant.IINLIM_2) is listed as 100 mA, the actual default value will depend on USB detection.
 //!
-//! ### USB D+/D- Detection
+//! ## USB D+/D- Detection
 //!
 //!  The charger detects the type of USB connection and sets the input current limit to comply with the USB specification:
 //!
@@ -53,19 +52,19 @@
 //!     * OTG pin = 1 : 500 mA (IINLIM[2:0] = 010)
 //! * Charging Down Stream Port or Dedicated Charging Down Stream Port (CDP/DCP): 1.5A (IINLIM[2:0] = 101)
 //!
-//! ### HIZ
+//! ## HIZ
 //!
 //! When the chip is in high-impedance (HIZ) the buck converter is disabled and the system load is supplied by the battery. To comply with the USB battery charging specification, the chip enters HIZ if the input source is a 100mA USB host and the battery voltage is above VBATGD (3.55V).
 //!
 //! This can be manually controlled via [InputSourceControl::EN_HIZ](struct.InputSourceControl.html#associatedconstant.EN_HIZ).
 //!
-//! ### ILIM
+//! ## ILIM
 //!
 //! ILIM is a hardware pin for a limiting maximum input current. It is grounded with a resistor using the following formula: `ILIM = 1V / R_ILIM * 530`
 //!
 //! By changing [`InputSourceControl::IINLIM[2:0]`](struct.InputSourceControl.html#associatedconstant.IINLIM_2), you can [ONLY REDUCE the input current limit below ILIM](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A436%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C481.2%2C0%5D).
 //!
-//! ### Charging Profile
+//! ## Charging Profile
 //!
 //! To safely charge the battery and preserve its lifetime, charging is split into several phases (collectively referred to as the charging profile):
 //!
@@ -75,13 +74,13 @@
 //! * Fast Charge: the battery voltage is above [`ChargeVoltageControl::BATLOWV`](struct.ChargeVoltageControl.html#associatedconstant.BATLOWV) (2.8V/3V), and the current limit is set to 512mA + [`ChargeCurrentControl::ICHG[5:0]`](struct.ChargeCurrentControl.html#associatedconstant.ICHG_5)
 //! * Constant-Voltage: the battery voltage has reached the recharge threshold voltage (3.504V + [`ChargeVoltageControl::VREG[5:0]`](struct.ChargeVoltageControl.html#associatedconstant.VREG_5)),and charging current drops rapidly to 128mA + [`PreChargeTerminationCurrentControl::ITERM[3:0]`](struct.PreChargeTerminationCurrentControl.html#associatedconstant.ITERM_3) at which charging is terminated
 //!
-//! ### Battery Temperature
+//! ## Battery Temperature
 //!
 //! An external thermistor is used to measure battery temperature. The reading must be between VLTF and VHTF, else the chip will suspend charging. The nature of the thermal fault will be indicated in [`Fault::NTC_FAULT[2:0]`](struct.Fault.html#associatedconstant.NTC_FAULT_2)
 //!
 //! In some cases, there is no therimstor present because the battery is external, in which case the chip may always report a normal battery temperature.
 //!
-//! ### Charging Termination
+//! ## Charging Termination
 //!
 //! BQ24195 will terminate charging when the battery voltage has reached the recharge threshold and the current has dropped below the termination threshold. [`SystemStatus::CHRG_STAT_1`](struct.SystemStatus.html#associatedconstant.CHRG_STAT_1) will become 11.
 //!
@@ -91,36 +90,36 @@
 //!
 //! Writing 1 to [`ChargeTerminationTimerControl::TERM_STAT`](struct.ChargeTerminationTimerControl.html#associatedconstant.TERM_STAT) will enable an early charge done indication on the STAT pin when charging current falls below 800 mA.
 //!
-//! ### Safety Timer
+//! ## Safety Timer
 //!
 //! A safety timer is used to stop charging if it is taking too long. When connected to a 100mA USB source, it is ALWAYS a maximum of 45 minutes. Otherwise, in device mode, it is 5 hours long. In host mode, it is 8 hours long but can be changed.
 //! If battery voltage is below [`ChargeVoltageControl::BATLOWV`](struct.ChargeVoltageControl.html#associatedconstant.BATLOWV), it is 1 hour.
 //! An expired safety timer will appear as [`Fault::CHRG_FAULT[1:0]`](struct.Fault.html#associatedconstant.CHRG_FAULT_1) equal to 11. The timer can be enabled/disabled by writing to [`ChargeTerminationTimerControl::EN_TIMER`](struct.ChargeTerminationTimerControl.html#associatedconstant.EN_TIMER).
 //!
-//! #### Restarting the timer
+//! ### Restarting the timer
 //!
 //! The timer can be restarted by disabling and then re-enabling it. It is also restarted when [`PowerOnConfiguration::CHG_CONFIG[1:0]`](struct.PowerOnConfiguration.html#associatedconstant.CHG_CONFIG_1) is changed from disabled to any enabled mode.
 //!
-//! #### Changing the timer
+//! ### Changing the timer
 //!
 //! To change the timer, the datasheet recommends you first disable it, write the desired value to [`ChargeTerminationTimerControl::CHG_TIMER[2:1]`](struct.ChargeTerminationTimerControl.html#associatedconstant.CHG_TIMER_1), then re-enable it.
 //!
-//! #### Half clock rate
+//! ### Half clock rate
 //!
 //! The safety timer will count at half the normal clock rate when in thermal regulation, input voltage/current regulation, or [`ChargeCurrentControl::FORCE_20PCT`](struct.ChargeCurrentControl.html#associatedconstant.FORCE_20PCT) is set.
 //! A 5 hour safety timer would actually be 10 hours long.
 //!
-//! ## Protections
+//! # Protections
 //!
-//! ### ILIM
+//! ## ILIM
 //!
 //! Already discussed above.
 //!
-//! ### Battery Over-Current Protection
+//! ## Battery Over-Current Protection
 //!
 //! If the battery voltage is at least 4% above the regulation voltage, charging is immediately disabled and [`Fault::CHRG_FAULT_1`](struct.Fault.html#associatedconstant.CHRG_FAULT_1) goes high.
 //!
-//! ### Input Over-Voltage
+//! ## Input Over-Voltage
 //!
 //! An input voltage of over 18V for VBUS will stop buck mode operation and [`Fault::CHRG_FAULT[1:0]`](struct.Fault.html#associatedconstant.CHRG_FAULT_1) will be set to 01.
 
