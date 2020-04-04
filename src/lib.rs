@@ -12,19 +12,23 @@
 //! ### Host Mode
 //!
 //! In host mode,
-//! The chip will transition to host mode upon writing to any chip register, resetting the watchdog timer. If the watchdog timer set in [`ChargeTerminationTimerControl::WATCHDOG[1:0]`](struct.ChargeTerminationTimerControl.html#associatedconstant.WATCHDOG_1) (default 40s) expires, the chip transitions back to default mode.
-//! To stay in host mode, either write 1 twice to [`PowerOnConfiguration::I2C_WATCHDOG_TIMER_RESET`](struct.PowerOnConfiguration.html#associatedconstant.I2C_WATCHDOG_TIMER_RESET) to reset the timer before it expires, or disable the timer entirely by setting [`ChargeTerminationTimerControl::WATCHDOG[1:0]`](struct.ChargeTerminationTimerControl.html#associatedconstant.WATCHDOG_1) to 00.
+//! The chip will transition to host mode upon writing to any chip register, resetting the watchdog timer.
+//! If the watchdog timer set in [`ChargeTerminationTimerControl::WATCHDOG[1:0]`](struct.ChargeTerminationTimerControl.html#associatedconstant.WATCHDOG_1) (default 40s) expires, the chip transitions back to default mode.
+//! To stay in host mode, either write 1 twice to [`PowerOnConfiguration::I2C_WATCHDOG_TIMER_RESET`](struct.PowerOnConfiguration.html#associatedconstant.I2C_WATCHDOG_TIMER_RESET) to reset the timer before it expires,
+//! or disable the timer entirely by setting [`ChargeTerminationTimerControl::WATCHDOG[1:0]`](struct.ChargeTerminationTimerControl.html#associatedconstant.WATCHDOG_1) to 00.
 //!
 //! ## BATFET
 //!
-//! The battery field-effect transistor (BATFET) is used to control the flow of current to the battery. You can manually disable it by writing 1 to [`MiscOperationControl::BATFET_DISABLE`](struct.MiscOperationControl.html#associatedconstant.BATFET_DISABLE). This disconnects the battery, disabling both charging and discharging.
+//! The battery field-effect transistor (BATFET) is used to control the flow of current to the battery.
+//! You can manually disable it by writing 1 to [`MiscOperationControl::BATFET_DISABLE`](struct.MiscOperationControl.html#associatedconstant.BATFET_DISABLE). This disconnects the battery, disabling both charging and discharging.
 //!
 //! ## Power Path Management
 //! [Dynamic Power Management](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A326%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C202.4%2C0%5D) ensures compliance with the USB specification.
 //! It continuously monitors the input current and input voltage to maintain nominal system performance.
 //!
 //! ### Overloaded input source
-//! If input current exceeds [`InputSourceControl::IINLIM[2:0]`](struct.InputSourceControl.html#associatedconstant.IINLIM_2) or input voltage falls below 3.88V + [`InputSourceControl::VINDPM[3:0]`](struct.InputSourceControl.html#associatedconstant.VINDPM_3), then the input source is considered overloaded. [`SystemStatus::DPM_STATUS`](struct.SystemStatus.html#associatedconstant.DPM_STAT) will indicate these conditions.
+//! If input current exceeds [`InputSourceControl::IINLIM[2:0]`](struct.InputSourceControl.html#associatedconstant.IINLIM_2) or input voltage falls below 3.88V + [`InputSourceControl::VINDPM[3:0]`](struct.InputSourceControl.html#associatedconstant.VINDPM_3),
+//! then the input source is considered overloaded. [`SystemStatus::DPM_STATUS`](struct.SystemStatus.html#associatedconstant.DPM_STAT) will indicate these conditions.
 //! DPM will reduce charge current until it is no longer overloaded.
 //!
 //! For example, the default input voltage limit offset is set to 480 mV (3.88V + 480mV = 4.36V), which is the correct voltage for fully charging a Lithium-Ion cell.
@@ -69,7 +73,7 @@
 //!     * [Lithium-Ion batteries should never be drained below 3V](https://electronics.stackexchange.com/questions/219222/is-draining-a-li-ion-to-2-5v-harmful-to-the-battery). If they are, battery life is significantly reduced.
 //! * Pre-charge: the battery voltage is 2V to 3V, and current limit is set to 128mA + [`PreChargeTerminationCurrentControl::IPRECHG[3:0]`](struct.PreChargeTerminationCurrentControl.html#associatedconstant.IPRECHG_3)
 //! * Fast Charge: the battery voltage is above [`ChargeVoltageControl::BATLOWV`](struct.ChargeVoltageControl.html#associatedconstant.BATLOWV) (2.8V/3V), and the current limit is set to 512mA + [`ChargeCurrentControl::ICHG[5:0]`](struct.ChargeCurrentControl.html#associatedconstant.ICHG_5)
-//! * Constant-Voltage: the battery voltage has reached the recharge threshold voltage (3.504V + [`ChargeVoltageControl::VREG[5:0]`](struct.ChargeVoltageControl.html#associatedconstant.VREG_5)), and charging current drops rapidly to 128mA + [`PreChargeTerminationCurrentControl::ITERM[3:0]`](struct.PreChargeTerminationCurrentControl.html#associatedconstant.ITERM_3) at which charging is terminated
+//! * Constant-Voltage: the battery voltage has reached the recharge threshold voltage (3.504V + [`ChargeVoltageControl::VREG[5:0]`](struct.ChargeVoltageControl.html#associatedconstant.VREG_5)),and charging current drops rapidly to 128mA + [`PreChargeTerminationCurrentControl::ITERM[3:0]`](struct.PreChargeTerminationCurrentControl.html#associatedconstant.ITERM_3) at which charging is terminated
 //!
 //! ### Battery Temperature
 //!
@@ -103,7 +107,8 @@
 //!
 //! #### Half clock rate
 //!
-//! The safety timer will count at half the normal clock rate when in thermal regulation, input voltage/current regulation, or [`ChargeCurrentControl::FORCE_20PCT`](struct.ChargeCurrentControl.html#associatedconstant.FORCE_20PCT) is set. A 5 hour safety timer would actually be 10 hours long.
+//! The safety timer will count at half the normal clock rate when in thermal regulation, input voltage/current regulation, or [`ChargeCurrentControl::FORCE_20PCT`](struct.ChargeCurrentControl.html#associatedconstant.FORCE_20PCT) is set.
+//! A 5 hour safety timer would actually be 10 hours long.
 //!
 //! ## Protections
 //!
@@ -118,7 +123,6 @@
 //! ### Input Over-Voltage
 //!
 //! An input voltage of over 18V for VBUS will stop buck mode operation and [`Fault::CHRG_FAULT[1:0]`](struct.Fault.html#associatedconstant.CHRG_FAULT_1) will be set to 01.
-//!
 
 #![no_std]
 #![forbid(unsafe_code)]
