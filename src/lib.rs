@@ -224,35 +224,73 @@ macro_rules! registers {
         }
 
         $(
-            // bitflags! {
-                $(#[$outer])*
-                #[derive(Copy, Debug, PartialEq, Clone, Eq)]
-                pub struct $registerName {
-                    bits: u8
+            $(#[$outer])*
+            #[derive(Copy, Debug, PartialEq, Clone, Eq)]
+            pub struct $registerName {
+                bits: u8
+            }
+
+            impl $registerName {
+                #[$bit7meta]
+                pub const $bit7: Self = Self { bits: 1u8 << 7 };
+                #[$bit6meta]
+                pub const $bit6: Self = Self { bits: 1u8 << 6 };
+                #[$bit5meta]
+                pub const $bit5: Self = Self { bits: 1u8 << 5 };
+                #[$bit4meta]
+                pub const $bit4: Self = Self { bits: 1u8 << 4 };
+                #[$bit3meta]
+                pub const $bit3: Self = Self { bits: 1u8 << 3 };
+                #[$bit2meta]
+                pub const $bit2: Self = Self { bits: 1u8 << 2 };
+                #[$bit1meta]
+                pub const $bit1: Self = Self { bits: 1u8 << 1 };
+                #[$bit0meta]
+                pub const $bit0: Self = Self { bits: 1u8 << 0 };
+            }
+
+            impl core::ops::BitOr for $registerName {
+                type Output = Self;
+                fn bitor(self, rhs: Self) -> Self {
+                    Self { bits: self.bits | rhs.bits }
                 }
-                impl $registerName {
-                    #[$bit7meta]
-                    pub const $bit7: u8 = 0b1000_0000;
-                    #[$bit6meta]
-                    pub const $bit6: u8 = 0b0100_0000;
-                    #[$bit5meta]
-                    pub const $bit5: u8 = 0b0010_0000;
-                    #[$bit4meta]
-                    pub const $bit4: u8 = 0b0001_0000;
-                    #[$bit3meta]
-                    pub const $bit3: u8 = 0b0000_1000;
-                    #[$bit2meta]
-                    pub const $bit2: u8 = 0b0000_0100;
-                    #[$bit1meta]
-                    pub const $bit1: u8 = 0b0000_0010;
-                    #[$bit0meta]
-                    pub const $bit0: u8 = 0b0000_0001;
+            }
+
+            impl core::ops::BitOrAssign for $registerName {
+                fn bitor_assign(&mut self, rhs: Self) {
+                    self.bits |= rhs.bits;
                 }
-            // }
+            }
+
+            impl core::ops::BitAnd for $registerName {
+                type Output = Self;
+                fn bitand(self, rhs: Self) -> Self {
+                    Self { bits: self.bits & rhs.bits }
+                }
+            }
+
+            impl core::ops::BitAndAssign for $registerName {
+                fn bitand_assign(&mut self, rhs: Self) {
+                    self.bits &= rhs.bits;
+                }
+            }
+
+            impl core::ops::BitXor for $registerName {
+                type Output = Self;
+                fn bitxor(self, rhs: Self) -> Self {
+                    Self { bits: self.bits ^ rhs.bits }
+                }
+            }
+
+            impl core::ops::BitXorAssign for $registerName {
+                fn bitxor_assign(&mut self, rhs: Self) {
+                    self.bits ^= rhs.bits;
+                }
+            }
 
             impl Default for $registerName {
                 fn default() -> $registerName {
-                    $registerName{bits: $($registerName::$default |)* 0u8}
+                    $($registerName::$default |)* 0u8.into()
                 }
             }
 
