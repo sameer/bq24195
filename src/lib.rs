@@ -1,46 +1,124 @@
-//! ## Dynamic Power Management (DPM)
+//! # BQ24195
+//! BQ24195 is a single cell charger intended for use in portable devices. The features of the charger are summarized as they pertain to this library below.
+//!
+//! ## Functional Modes
+//!
+//! Chip mode is indicated by [`Fault::WATCHDOG_FAULT`](struct.Fault.html#associatedconstant.WATCHDOG_FAULT), 1 = Default Mode and 0 = Host Mode.
+//!
+//! ### Default Mode
+//!
+//! By default, the chip does not require host management and can be used as an autonomous charger. In this case, I2C can be used to just monitor the chip's status.
+//!
+//! ### Host Mode
+//!
+//! In host mode,
+//! The chip will transition to host mode upon writing to any chip register, resetting the watchdog timer. If the watchdog timer set in [`ChargeTerminationTimerControl::WATCHDOG[1:0]`](struct.ChargeTerminationTimerControl.html#associatedconstant.WATCHDOG_1) (default 40s) expires, the chip transitions back to default mode.
+//! To stay in host mode, either write 1 twice to [`PowerOnConfiguration::I2C_WATCHDOG_TIMER_RESET`](struct.PowerOnConfiguration.html#associatedconstant.I2C_WATCHDOG_TIMER_RESET) to reset the timer before it expires, or disable the timer entirely by setting [`ChargeTerminationTimerControl::WATCHDOG[1:0]`](struct.ChargeTerminationTimerControl.html#associatedconstant.WATCHDOG_1) to 00.
+//!
+//! ## BATFET
+//!
+//! The battery field-effect transistor (BATFET) is used to control the flow of current to the battery. You can manually disable it by writing 1 to [`MiscOperationControl::BATFET_DISABLE`](struct.MiscOperationControl.html#associatedconstant.BATFET_DISABLE). This disconnects the battery, disabling both charging and discharging.
+//!
+//! ## Power Path Management
 //! [Dynamic Power Management](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A326%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C202.4%2C0%5D) ensures compliance with the USB specification.
 //! It continuously monitors the input current and input voltage to maintain nominal system performance.
-//! ### Overloaded input source
-//! If input current exceeds [InputSourceControl::IINLIM[2:0]](struct.InputSourceControl.html#associatedconstant.IINLIM_2) or voltage falls below 3.88V + [InputSourceControl::VINDPM[3:0]](struct.InputSourceControl.html#associatedconstant.VINDPM_3), then the input source is overloaded. [SystemStatus::DPM_STATUS](struct.SystemStatus.html#associatedconstant.DPM_STAT) will indicate these conditions.
-//! When the input source is overloaded, DPM will reduce charge current until it is no longer overloaded.
 //!
-//! For example, the default input voltage limit offset is set to 480 mV (3.88V + 480mV = 4.36V), which is enough to fully charge a Lithium-Ion cell.
+//! ### Overloaded input source
+//! If input current exceeds [`InputSourceControl::IINLIM[2:0]`](struct.InputSourceControl.html#associatedconstant.IINLIM_2) or input voltage falls below 3.88V + [`InputSourceControl::VINDPM[3:0]`](struct.InputSourceControl.html#associatedconstant.VINDPM_3), then the input source is considered overloaded. [`SystemStatus::DPM_STATUS`](struct.SystemStatus.html#associatedconstant.DPM_STAT) will indicate these conditions.
+//! DPM will reduce charge current until it is no longer overloaded.
+//!
+//! For example, the default input voltage limit offset is set to 480 mV (3.88V + 480mV = 4.36V), which is the correct voltage for fully charging a Lithium-Ion cell.
 //!
 //! ### Supplement mode
-//! If the input source is still overloaded when the charge current is dropped to 0A, the chip enters supplement mode; the BATFET is turned on and the battery begins discharging.
 //!
-//! ## Charging Rate
+//! If the input source is still overloaded when the charge current is dropped to 0A, the chip enters supplement mode; the BATFET is turned on and the battery begins discharging to supplement the input source.
 //!
-//! BQ24195 is designed to charge a single-cell Li-Ion high capacity battery.
+//! ## Battery Charging Management
 //!
-//! Although the default [InputSourceControl::IINLIM[2:0]](struct.InputSourceControl.html#associatedconstant.IINLIM) is listed as 100 mA, the actual default value will depend on charger detection.
+//! BQ24195 is designed to charge a single-cell Li-Ion high capacity battery (i.e. 18650).
+//!
+//! Although the default current limit [`InputSourceControl::IINLIM[2:0]`](struct.InputSourceControl.html#associatedconstant.IINLIM_2) is listed as 100 mA, the actual default value will depend on USB detection.
 //!
 //! ### USB D+/D- Detection
 //!
-//!  The charger detects the type of USB connection and sets the maximum input current limit to comply with the USB specification:
+//!  The charger detects the type of USB connection and sets the input current limit to comply with the USB specification:
 //!
 //! * Floating data lines after 500ms: 100mA (IINLIM[2:0] = 000)
-//! * Standard Down Stream Port (SDP) (USB Host)
+//! * Standard Down Stream Port (SDP) (connected to USB Host)
 //!     * OTG pin = 0 : 100 mA (IINLIM[2:0] = 000)
 //!     * OTG pin = 1 : 500 mA (IINLIM[2:0] = 010)
 //! * Charging Down Stream Port or Dedicated Charging Down Stream Port (CDP/DCP): 1.5A (IINLIM[2:0] = 101)
 //!
+//! ### HIZ
+//!
+//! When the chip is in high-impedance (HIZ) the buck converter is disabled and the system load is supplied by the battery. To comply with the USB battery charging specification, the chip enters HIZ if the input source is a 100mA USB host and the battery voltage is above VBATGD (3.55V).
+//!
+//! This can be manually controlled via [InputSourceControl::EN_HIZ](struct.InputSourceControl.html#associatedconstant.EN_HIZ).
+//!
 //! ### ILIM
 //!
-//! BQ24195 has a hardware pin for a limiting maximum input current, ILIM. It is grounded with a resistor using the following formula: `ILIM = 1V / R_ILIM * 530`
+//! ILIM is a hardware pin for a limiting maximum input current. It is grounded with a resistor using the following formula: `ILIM = 1V / R_ILIM * 530`
 //!
-//! By changing [InputSourceControl::IINLIM[2:0]](struct.InputSourceControl.html#associatedconstant.IINLIM), you can ONLY REDUCE the input current limit below ILIM.
-//!
+//! By changing [`InputSourceControl::IINLIM[2:0]`](struct.InputSourceControl.html#associatedconstant.IINLIM_2), you can [ONLY REDUCE the input current limit below ILIM](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A436%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C481.2%2C0%5D).
 //!
 //! ### Charging Profile
 //!
-//! To maintain battery lifetime, charging is split into several phases (collectively referred to as the profile):
+//! To safely charge the battery and preserve its lifetime, charging is split into several phases (collectively referred to as the charging profile):
 //!
-//! * Almost Empty or Empty Cell: the battery voltage is below 2V (VBAT_SHORT) and is charged at 100mA, which cannot be changed
-//! * Pre-charge: the battery voltage is 2V to 3V, and current limit is set to 128mA + [PreChargeTerminationCurrentControl::IPRECHG[3:0]](struct.PreChargeTerminationCurrentControl.html#associatedconstant.IPRECHG_3)
-//! * Fast Charge: the battery voltage is above 3V (VBAT_LOWV), and current limit is set to 512mA + [ChargeCurrentControl::ICHG[5:0]](struct.ChargeCurrentControl.html#associatedconstant.ICHG_5)
-//! * Constant-Voltage: the battery voltage has reached VREG (3.504V + [ChargeVoltageControl::VREG[5:0]](struct.ChargeVoltageControl.html#associatedconstant.VREG_5)), and charging current drops rapidly to 128mA + [PreChargeTerminationCurrentControl::ITERM[3:0]](struct.PreChargeTerminationCurrentControl.html#associatedconstant.ITERM_3)
+//! * Almost Empty or Empty Cell: the battery voltage is below the battery short voltage (VBAT_SHORT = 2V) and is charged at 100mA, which cannot be changed
+//!     * [Lithium-Ion batteries should never be drained below 3V](https://electronics.stackexchange.com/questions/219222/is-draining-a-li-ion-to-2-5v-harmful-to-the-battery). If they are, battery life is significantly reduced.
+//! * Pre-charge: the battery voltage is 2V to 3V, and current limit is set to 128mA + [`PreChargeTerminationCurrentControl::IPRECHG[3:0]`](struct.PreChargeTerminationCurrentControl.html#associatedconstant.IPRECHG_3)
+//! * Fast Charge: the battery voltage is above [`ChargeVoltageControl::BATLOWV`](struct.ChargeVoltageControl.html#associatedconstant.BATLOWV) (2.8V/3V), and the current limit is set to 512mA + [`ChargeCurrentControl::ICHG[5:0]`](struct.ChargeCurrentControl.html#associatedconstant.ICHG_5)
+//! * Constant-Voltage: the battery voltage has reached the recharge threshold voltage (3.504V + [`ChargeVoltageControl::VREG[5:0]`](struct.ChargeVoltageControl.html#associatedconstant.VREG_5)), and charging current drops rapidly to 128mA + [`PreChargeTerminationCurrentControl::ITERM[3:0]`](struct.PreChargeTerminationCurrentControl.html#associatedconstant.ITERM_3) at which charging is terminated
+//!
+//! ### Battery Temperature
+//!
+//! An external thermistor is used to measure battery temperature. The reading must be between VLTF and VHTF, else the chip will suspend charging. The nature of the thermal fault will be indicated in [`Fault::NTC_FAULT[2:0]`](struct.Fault.html#associatedconstant.NTC_FAULT_2)
+//!
+//! In some cases, there is no therimstor present because the battery is external, in which case the chip may always report a normal battery temperature.
+//!
+//! ### Charging Termination
+//!
+//! BQ24195 will terminate charging when the battery voltage has reached the recharge threshold and the current has dropped below the termination threshold. [`SystemStatus::CHRG_STAT_1`](struct.SystemStatus.html#associatedconstant.CHRG_STAT_1) will become 11.
+//!
+//! Termination will be disabled if the device is in thermal regulation or input current/voltage regulation. It can also be disabled manually by writing 0 to [`ChargeTerminationTimerControl::EN_TERM`](struct.ChargeTerminationTimerControl.html#associatedconstant.EN_TERM)
+//!
+//! When [`ChargeCurrentControl::FORCE_20PCT`](struct.ChargeCurrentControl.html#associatedconstant.FORCE_20PCT) is set, make sure that the termination current [`PreChargeTerminationCurrentControl::ITERM[3:0]`](struct.PreChargeTerminationCurrentControl.html#associatedconstant.ITERM_3) is less than 20% of the charging current, otherwise charging will not terminate.
+//!
+//! Writing 1 to [`ChargeTerminationTimerControl::TERM_STAT`](struct.ChargeTerminationTimerControl.html#associatedconstant.TERM_STAT) will enable an early charge done indication on the STAT pin when charging current falls below 800 mA.
+//!
+//! ### Safety Timer
+//!
+//! A safety timer is used to stop charging if it is taking too long. When connected to a 100mA USB source, it is ALWAYS a maximum of 45 minutes. Otherwise, in device mode, it is 5 hours long. In host mode, it is 8 hours long but can be changed.
+//! If battery voltage is below [`ChargeVoltageControl::BATLOWV`](struct.ChargeVoltageControl.html#associatedconstant.BATLOWV), it is 1 hour.
+//! An expired safety timer will appear as [`Fault::CHRG_FAULT[1:0]`](struct.Fault.html#associatedconstant.CHRG_FAULT_1) equal to 11. The timer can be enabled/disabled by writing to [`ChargeTerminationTimerControl::EN_TIMER`](struct.ChargeTerminationTimerControl.html#associatedconstant.EN_TIMER).
+//!
+//! #### Restarting the timer
+//!
+//! The timer can be restarted by disabling and then re-enabling it. It is also restarted when [`PowerOnConfiguration::CHG_CONFIG[1:0]`](struct.PowerOnConfiguration.html#associatedconstant.CHG_CONFIG_1) is changed from disabled to any enabled mode.
+//!
+//! #### Changing the timer
+//!
+//! To change the timer, the datasheet recommends you first disable it, write the desired value to [`ChargeTerminationTimerControl::CHG_TIMER[2:1]`](struct.ChargeTerminationTimerControl.html#associatedconstant.CHG_TIMER_1), then re-enable it.
+//!
+//! #### Half clock rate
+//!
+//! The safety timer will count at half the normal clock rate when in thermal regulation, input voltage/current regulation, or [`ChargeCurrentControl::FORCE_20PCT`](struct.ChargeCurrentControl.html#associatedconstant.FORCE_20PCT) is set. A 5 hour safety timer would actually be 10 hours long.
+//!
+//! ## Protections
+//!
+//! ### ILIM
+//!
+//! Already discussed above.
+//!
+//! ### Battery Over-Current Protection
+//!
+//! If the battery voltage is at least 4% above the regulation voltage, charging is immediately disabled and [`Fault::CHRG_FAULT_1`](struct.Fault.html#associatedconstant.CHRG_FAULT_1) goes high.
+//!
+//! ### Input Over-Voltage
+//!
+//! An input voltage of over 18V for VBUS will stop buck mode operation and [`Fault::CHRG_FAULT[1:0]`](struct.Fault.html#associatedconstant.CHRG_FAULT_1) will be set to 01.
+//!
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -196,9 +274,9 @@ const LAST_WRITABLE_REGISTER: usize = 7;
 
 registers!(
     #[doc(noinline)]
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A578%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C681.2%2C0%5D)
+    /// [Register 0x00](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A578%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C681.2%2C0%5D)
     InputSourceControl (0x00) {
-        /// Buck Converter Control (0 = Restart Buck Converter, 1 = Buck Converter Stops, system l oad supplied by battery)
+        /// Buck Converter Control (0 = Restart Buck Converter, 1 = Buck Converter Stops, system load supplied by battery)
         EN_HIZ,
         /// Input Voltage Limit Offset Bit 3: 640mV
         VINDPM_3,
@@ -215,7 +293,7 @@ registers!(
         /// Input Current Limit Bit 0
         IINLIM_0,
     Default { VINDPM_2, VINDPM_1 }},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A586%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    /// [Register 0x01](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A586%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
     PowerOnConfiguration (0x01) {
         /// Resets this register upon writing this value, returns to 0 after reset
         REGISTER_RESET,
@@ -239,7 +317,7 @@ registers!(
         SYS_MIN_0,
         RESERVED
     }},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A158%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    /// [Register 0x02](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A158%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
     ChargeCurrentControl (0x02) {
         /// Fast Charge Current Limit Offset Bit 5: 2048 mA
         ICHG_5,
@@ -255,10 +333,10 @@ registers!(
         ICHG_0,
         /// Reserved, must write 0
         RESERVED,
-        /// Force 20% of fast-charge current limit and 500% of pre-charge current limit
+        /// Force 20% of fast-charge current limit and 50% of pre-charge current limit
         FORCE_20PCT,
     Default { ICHG_4, ICHG_3 }},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A158%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C409.9%2C0%5D)
+    /// [Register 0x03](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A158%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C409.9%2C0%5D)
     PreChargeTerminationCurrentControl (0x03) {
         /// Pre-Charge Current Limit Offset Bit 3: 1024 mA
         IPRECHG_3,
@@ -277,7 +355,7 @@ registers!(
         /// Termination Current Limit Offset Bit 0: 128 mA
         ITERM_0,
     Default { IPRECHG_0, ITERM_0 }},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A601%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    /// [Register 0x04](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A601%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
     ChargeVoltageControl (0x04) {
         /// Charger Voltage Limit Offset Bit 5: 512mV
         VREG_5,
@@ -301,8 +379,8 @@ registers!(
         VREG_2,
         BATLOWV
     }},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A601%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C437.5%2C0%5D)
-    ChargeTerminationTimerControlRegister (0x05) {
+    /// [Register 0x05](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A601%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C437.5%2C0%5D)
+    ChargeTerminationTimerControl (0x05) {
         /// Charging Termination Enable
         EN_TERM,
         /// Termination Indicator Threshold
@@ -325,7 +403,7 @@ registers!(
         EN_TIMER,
         CHG_TIMER_0
     }},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A609%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    /// [Register 0x06](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A609%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
     ThermalRegulationControl (0x06) {
         /// Reserved, must write 0
         RESERVED_7,
@@ -344,7 +422,7 @@ registers!(
         /// Thermal Regulation Threshold Bit 0 (00 = 60C, 01 = 80C)
         TREG_0,
     Default { TREG_1, TREG_0 }},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A609%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C463.9%2C0%5D)
+    /// [Register 0x07](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A609%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C463.9%2C0%5D)
     MiscOperationControl (0x07) {
         /// Force DPDM detection
         DPDM_EN,
@@ -368,7 +446,7 @@ registers!(
         INT_MASK_1,
         INT_MASK_0
     }},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A618%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    /// [Register 0x08](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A618%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
     SystemStatus (0x08) {
         /// VBUS Status Bit 1 (10 = Adapter port, 11 = OTG)
         VBUS_STAT_1,
@@ -387,7 +465,7 @@ registers!(
         /// VSYSMIN Regulation Status (0 = BAT > VSYSTMIN, 1 = BAT < VSYSMIN)
         VSYS_STAT,
     Default {}},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A618%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C468.1%2C0%5D)
+    /// [Register 0x09](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A618%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C468.1%2C0%5D)
     Fault (0x09) {
         /// Watchdog Fault Status (0 = normal, 1 = watchdog timer expired)
         WATCHDOG_FAULT,
@@ -405,8 +483,8 @@ registers!(
         NTC_FAULT_1,
         /// NTC Fault Bit 0 (000 = Normal, 101 = Cold)
         NTC_FAULT_0,
-    Default {}},
-    /// [Relevant BQ24195 Datasheet Section](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A626%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
+    Default { WATCHDOG_FAULT }},
+    /// [Register 0x0A](https://www.ti.com/lit/ds/symlink/bq24195l.pdf#%5B%7B%22num%22%3A626%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C0%2C720%2C0%5D)
     VendorPartRevisionStatus (0x0A) {
         /// Reserved, always 0
         RESERVED_7,
