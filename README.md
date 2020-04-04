@@ -1,8 +1,8 @@
 # BQ24195 i2c driver
 
-[![Latest version](https://img.shields.io/crates/v/bq24195.svg)](https://crates.io/crates/bq24195)
-[![Documentation](https://docs.rs/usbd-blaster/badge.svg)](https://docs.rs/bq24195)
-![License](https://img.shields.io/crates/l/bq24195.svg)
+[![Latest version](https://img.shields.io/crates/v/bq24195-i2c.svg)](https://crates.io/crates/bq24195-i2c)
+[![Documentation](https://docs.rs/usbd-blaster/badge.svg)](https://docs.rs/bq24195-i2c)
+![License](https://img.shields.io/crates/l/bq24195-i2c.svg)
 
 The documentation for this library should cover everything you need to know about the chip and its i2c registers.
 

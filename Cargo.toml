@@ -1,6 +1,6 @@
 [package]
 name = "bq24195-i2c"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Sameer Puri <purisame@spuri.io>"]
 edition = "2018"
 keywords = ["no-std", "power", "i2c", "bq24195", "charger"]
