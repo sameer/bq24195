@@ -1,6 +1,6 @@
 [package]
 name = "bq24195-i2c"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Sameer Puri <purisame@spuri.io>"]
 edition = "2018"
 keywords = ["no-std", "power", "i2c", "bq24195", "charger"]
@@ -12,8 +12,8 @@ description = "I2C driver for Texas Instruments BQ24195 Single Cell Charger"
 readme = "README.md"
 
 [badges]
-is-it-maintained-issue-resolution = { repository = "https://github.com/sameer/bq24195-i2c" }
-is-it-maintained-open-issues = { repository = "https://github.com/sameer/bq24195-i2c" }
+is-it-maintained-issue-resolution = { repository = "sameer/bq24195-i2c" }
+is-it-maintained-open-issues = { repository = "sameer/bq24195-i2c" }
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
